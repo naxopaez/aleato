@@ -7,35 +7,36 @@ const TeamDisplay = ({ teams }) => {
   }
 
   const teamColors = [
-    '#2196F3', // Azul
-    '#4CAF50', // Verde
-    '#F44336', // Rojo
-    '#FF9800', // Naranja
-    '#9C27B0', // Púrpura
-    '#00BCD4', // Cyan
-    '#FF5722', // Naranja oscuro
-    '#795548', // Marrón
-    '#607D8B', // Azul grisáceo
-    '#E91E63'  // Rosa
+    '#3B82F6',
+    '#6366F1',
+    '#0EA5E9',
+    '#14B8A6',
+    '#10B981',
+    '#8B5CF6',
+    '#F97316',
+    '#F43F5E',
+    '#64748B',
+    '#22C55E'
   ];
 
   return (
     <div className="teams-display">
       {teams.map((team, index) => (
-        <div 
-          key={team.name} 
+        <div
+          key={team.name}
           className="team-card"
-          style={{ 
+          style={{
             '--team-color': teamColors[index % teamColors.length],
-            animationDelay: `${index * 0.1}s`
+            animationDelay: `${index * 0.08}s`
           }}
         >
-          <h3>{team.name}</h3>
+          <div className="team-card-header">
+            <h3>{team.name}</h3>
+            <span className="team-count">{team.players.length} jugadores</span>
+          </div>
           <ul>
             {team.players.map((player, playerIndex) => (
-              <li key={`${team.name}-${playerIndex}`}>
-                {player}
-              </li>
+              <li key={`${team.name}-${playerIndex}`}>{player}</li>
             ))}
           </ul>
         </div>
