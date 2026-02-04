@@ -18,30 +18,33 @@ const PlayerInput = ({ onAddPlayer, disabled }) => {
   };
 
   return (
-    <div className="single-player-input">
-      <h3>Agregar jugador</h3>
+    <div className="panel">
+      <div className="panel-header">
+        <h3>Agregar jugador</h3>
+        <p>Ingresá un nombre y sumalo a la lista.</p>
+      </div>
       <div className="input-container">
         <input
           type="text"
           value={playerName}
           onChange={(e) => setPlayerName(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder="Nombre del jugador..."
+          placeholder="Nombre del jugador"
           aria-label="Nombre del jugador"
           disabled={disabled}
         />
         <button
-          className="add-player-btn"
+          className="btn btn-primary btn-input"
           onClick={handleSubmit}
           aria-label="Agregar jugador"
           title="Agregar jugador"
           disabled={disabled || !playerName.trim()}
         >
-          +
+          Agregar
         </button>
       </div>
       {disabled && (
-        <p className="input-message">Ya se alcanzó el límite de jugadores</p>
+        <p className="input-message">Ya se alcanzó el límite de jugadores.</p>
       )}
     </div>
   );

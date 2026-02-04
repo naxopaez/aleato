@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import PlayerInput from './components/PlayerInput';
@@ -15,6 +15,49 @@ const STEPS = {
   RESULTS: 'results',
 };
 
+const STEP_ORDER = [STEPS.SETTINGS, STEPS.PLAYERS, STEPS.RESULTS];
+
+const STEP_META = {
+  [STEPS.SETTINGS]: {
+    label: 'Configurar',
+    title: 'Configuración de equipos',
+    description: 'Definí la cantidad de equipos y jugadores por equipo.'
+  },
+  [STEPS.PLAYERS]: {
+    label: 'Cargar jugadores',
+    title: 'Cargar jugadores',
+    description: 'Agregá jugadores uno por uno o pegá una lista completa.'
+  },
+  [STEPS.RESULTS]: {
+    label: 'Generar',
+    title: 'Equipos generados',
+    description: 'Compartí los equipos o reiniciá la configuración.'
+  }
+};
+
+const SAMPLE_PLAYERS = [
+  'Alex Torres',
+  'Belén Ruiz',
+  'Carlos Díaz',
+  'Daniela Soto',
+  'Elena Márquez',
+  'Federico Ríos',
+  'Gabriela Molina',
+  'Hernán Vega',
+  'Ivana López',
+  'Julián Paredes',
+  'Karina Santos',
+  'Lucas Navarro',
+  'Marina Castro',
+  'Nicolás Álvarez',
+  'Olivia Ramos',
+  'Pablo Herrera',
+  'Renata Flores',
+  'Santiago Núñez',
+  'Tamara Iglesias',
+  'Valentín Luna'
+];
+
 const formatName = (name) => {
   return name
     .split(' ')
@@ -24,7 +67,6 @@ const formatName = (name) => {
 };
 
 const App = () => {
-
   const {
     players,
     teams,
@@ -45,16 +87,26 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [bulkInput, setBulkInput] = useState('');
 
-  // Manejar agregar jugador
+  const activeStepIndex = STEP_ORDER.indexOf(currentStep);
+
+  const totalPlayersNeeded = useMemo(
+    () => getTotalPlayersNeeded(numTeams, teamSize),
+    [getTotalPlayersNeeded, numTeams, teamSize]
+  );
+
+  const playersRemaining = useMemo(
+    () => getPlayersRemaining(numTeams, teamSize),
+    [getPlayersRemaining, numTeams, teamSize]
+  );
+
   const handleAddPlayer = (name) => {
     const formattedName = formatName(name);
     if (!formattedName) {
-      toast.error('Por favor ingresa un nombre válido');
+      toast.error('Por favor ingresá un nombre válido');
       return;
     }
 
-    const totalNeeded = getTotalPlayersNeeded(numTeams, teamSize);
-    const remaining = totalNeeded - players.length;
+    const remaining = totalPlayersNeeded - players.length;
 
     if (remaining <= 0) {
       toast.warning('Ya se alcanzó el límite de jugadores');
@@ -67,19 +119,17 @@ const App = () => {
     }
 
     if (addPlayer(formattedName)) {
-      // Solo mostrar notificación en puntos clave
-      const newRemaining = totalNeeded - (players.length + 1);
-      if (newRemaining === Math.floor(totalNeeded / 2)) {
-        toast.info(`¡Ya vas por la mitad! Faltan ${newRemaining} jugadores`);
+      const newRemaining = totalPlayersNeeded - (players.length + 1);
+      if (newRemaining === Math.floor(totalPlayersNeeded / 2)) {
+        toast.info(`Vas por la mitad. Faltan ${newRemaining} jugadores.`);
       } else if (newRemaining === 1) {
-        toast.info('¡Solo falta 1 jugador!');
+        toast.info('Falta 1 jugador para completar la lista.');
       } else if (newRemaining === 0) {
-        toast.success('¡Lista completa! Ya puedes generar los equipos');
+        toast.success('Lista completa. Ya podés generar los equipos.');
       }
     }
   };
 
-  // Manejar entrada en bloque
   const handleBulkInput = () => {
     const names = bulkInput
       .split('\n')
@@ -91,8 +141,7 @@ const App = () => {
       return;
     }
 
-    const totalNeeded = getTotalPlayersNeeded(numTeams, teamSize);
-    const remainingSlots = totalNeeded - players.length;
+    const remainingSlots = totalPlayersNeeded - players.length;
 
     if (remainingSlots <= 0) {
       toast.warning('Ya se alcanzó el límite de jugadores');
@@ -111,45 +160,56 @@ const App = () => {
 
     if (added > 0) {
       const newTotal = initialCount + added;
-      const remaining = totalNeeded - newTotal;
+      const remaining = totalPlayersNeeded - newTotal;
 
-      // Notificaciones estratégicas para bulk input
       if (remaining === 0) {
-        toast.success('¡Lista completa! Ya puedes generar los equipos');
-      } else if (remaining <= Math.floor(totalNeeded / 2)) {
-        toast.info(`¡Buen progreso! Solo faltan ${remaining} jugadores`);
+        toast.success('Lista completa. Ya podés generar los equipos.');
+      } else if (remaining <= Math.floor(totalPlayersNeeded / 2)) {
+        toast.info(`Buen progreso. Solo faltan ${remaining} jugadores.`);
       } else {
-        toast.success(`Se agregaron ${added} jugadores`);
+        toast.success(`Se agregaron ${added} jugadores.`);
       }
 
       setBulkInput('');
     }
   };
 
-  // Manejar generación de equipos
+  const handleLoadSamplePlayers = () => {
+    const formattedSamples = SAMPLE_PLAYERS.map(formatName);
+    const uniqueSamples = Array.from(new Set(formattedSamples));
+    const nextPlayers = uniqueSamples.slice(0, totalPlayersNeeded);
+    setPlayers(nextPlayers);
+    clearTeams();
+    toast.info('Ejemplo cargado. Ya podés generar equipos.');
+  };
+
+  const handleClearPlayers = () => {
+    setPlayers([]);
+    clearTeams();
+    toast.info('Lista de jugadores limpia.');
+  };
+
   const handleGenerateTeams = async () => {
-    const totalNeeded = getTotalPlayersNeeded(numTeams, teamSize);
-    if (players.length < totalNeeded) {
-      toast.error(`Necesitas ${totalNeeded - players.length} jugadores más`);
+    if (players.length < totalPlayersNeeded) {
+      toast.error(`Necesitás ${totalPlayersNeeded - players.length} jugadores más`);
       return;
     }
 
     setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 1600));
     generateTeams();
     setIsLoading(false);
     setCurrentStep(STEPS.RESULTS);
-    toast.success('¡Equipos generados!');
+    toast.success('Equipos generados.');
   };
 
-  // Manejar compartir
   const handleShare = async () => {
     const teamsText = formatTeamsText();
     if (!teamsText) return;
 
     try {
       await navigator.clipboard.writeText(teamsText);
-      toast.success('¡Equipos copiados al portapapeles!');
+      toast.success('Equipos copiados al portapapeles.');
 
       if (navigator.share) {
         try {
@@ -185,141 +245,213 @@ const App = () => {
     window.open(whatsappUrl, '_blank');
   };
 
-  // Manejar eliminar jugador
   const handleRemovePlayer = (name) => {
     removePlayer(name);
     toast.info('Jugador eliminado');
   };
 
-  // Manejar reset
   const handleReset = () => {
-    // Limpiar equipos
     clearTeams();
-    // Limpiar jugadores
     setPlayers([]);
-    // Resetear número de equipos y tamaño
     setNumTeams(2);
     setTeamSize(2);
-    // Volver al primer paso
     setCurrentStep(STEPS.SETTINGS);
-    // Mostrar notificación
     toast.info('Configuración reiniciada');
+  };
+
+  const renderStepHeader = () => {
+    if (currentStep === STEPS.WELCOME) return null;
+    const stepMeta = STEP_META[currentStep];
+
+    return (
+      <div className="step-header">
+        <p className="step-eyebrow">Paso {activeStepIndex + 1} de 3</p>
+        <h2>{stepMeta.title}</h2>
+        <p className="step-description">{stepMeta.description}</p>
+      </div>
+    );
   };
 
   const renderStep = () => {
     switch (currentStep) {
       case STEPS.WELCOME:
         return (
-<div className="welcome-screen">
-  <div className="welcome-row">
-    <h1>Aleato</h1>
-    <p className="subtitle">Armá equipos aleatorios fácil y rápido</p>
-  </div>
-  <button onClick={() => setCurrentStep(STEPS.SETTINGS)}>
-    Comenzar
-  </button>
-</div>
+          <section className="welcome-screen">
+            <div className="hero">
+              <span className="hero-badge">Aleato Teams</span>
+              <h1>Equipos balanceados en segundos</h1>
+              <p>
+                Una experiencia simple y profesional para organizar partidos, juegos o
+                actividades grupales.
+              </p>
+              <div className="hero-actions">
+                <button
+                  className="btn btn-primary"
+                  onClick={() => setCurrentStep(STEPS.SETTINGS)}
+                >
+                  Comenzar
+                </button>
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => setCurrentStep(STEPS.SETTINGS)}
+                >
+                  Ver flujo de trabajo
+                </button>
+              </div>
+              <div className="hero-stats">
+                <div>
+                  <span className="stat-title">Configurar</span>
+                  <span className="stat-value">Número de equipos</span>
+                </div>
+                <div>
+                  <span className="stat-title">Cargar</span>
+                  <span className="stat-value">Jugadores en bloque</span>
+                </div>
+                <div>
+                  <span className="stat-title">Generar</span>
+                  <span className="stat-value">Equipos equilibrados</span>
+                </div>
+              </div>
+            </div>
+          </section>
         );
 
       case STEPS.SETTINGS:
         return (
-          <div className="settings-screen">
-            <h2 className="title-config">Configuración de Equipos</h2>
-            <div className="settings-form">
-              <div className="setting-item">
-                <label>
-                  Número de equipos:
-                  <input
-                    type="number"
-                    value={numTeams}
-                    onChange={(e) => setNumTeams(e.target.value)}
-                    min="2"
-                    max="10"
-                    required
-                  />
-                </label>
+          <section className="settings-screen">
+            {renderStepHeader()}
+            <div className="settings-grid">
+              <div className="panel">
+                <div className="panel-header">
+                  <h3>Definí la estructura</h3>
+                  <p>Podés ajustar estos valores en cualquier momento.</p>
+                </div>
+                <div className="settings-form">
+                  <label className="field">
+                    <span>Número de equipos</span>
+                    <input
+                      type="number"
+                      value={numTeams}
+                      onChange={(e) => setNumTeams(e.target.value)}
+                      min="2"
+                      max="10"
+                      required
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Jugadores por equipo</span>
+                    <input
+                      type="number"
+                      value={teamSize}
+                      onChange={(e) => setTeamSize(e.target.value)}
+                      min="2"
+                      max="11"
+                      required
+                    />
+                  </label>
+                </div>
               </div>
-              <div className="setting-item">
-                <label>
-                  Jugadores por equipo:
-                  <input
-                    type="number"
-                    value={teamSize}
-                    onChange={(e) => setTeamSize(e.target.value)}
-                    min="2"
-                    max="11"
-                    required
-                  />
-                </label>
-              </div>
-              <div className="total-players">
-                Total de jugadores necesarios: {getTotalPlayersNeeded(numTeams, teamSize)}
-              </div>
-              <div className="navigation-buttons">
-                <button onClick={() => setCurrentStep(STEPS.WELCOME)}>
-                  Volver
-                </button>
-                <button
-                  onClick={() => setCurrentStep(STEPS.PLAYERS)}
-                  disabled={numTeams < 2 || teamSize < 2}
-                >
-                  Continuar
-                </button>
+              <div className="panel panel-accent">
+                <h4>Resumen</h4>
+                <p className="summary-value">{totalPlayersNeeded}</p>
+                <p className="summary-label">Jugadores necesarios</p>
+                <div className="summary-hint">
+                  Distribución automática y equitativa al generar.
+                </div>
               </div>
             </div>
-          </div>
+            <div className="navigation-buttons">
+              <button className="btn btn-ghost" onClick={() => setCurrentStep(STEPS.WELCOME)}>
+                Volver
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => setCurrentStep(STEPS.PLAYERS)}
+                disabled={numTeams < 2 || teamSize < 2}
+              >
+                Continuar
+              </button>
+            </div>
+          </section>
         );
 
-      case STEPS.PLAYERS: {
-        const playersRemaining = getPlayersRemaining(numTeams, teamSize);
+      case STEPS.PLAYERS:
         return (
-          <div className="players-screen">
-            <div className="progress-info">
-              {playersRemaining > 0 ? (
-                <>
-                  <p>Faltan {playersRemaining} jugadores</p>
-                  <div className="progress-bar">
-                    <div
-                      className="progress-fill"
-                      style={{
-                        width: `${(players.length / getTotalPlayersNeeded(numTeams, teamSize)) * 100}%`
-                      }}
-                    />
-                  </div>
-                </>
-              ) : (
-                <p className="ready-message">¡Listo para generar equipos! 🎮</p>
-              )}
+          <section className="players-screen">
+            {renderStepHeader()}
+            <div className="progress-card">
+              <div>
+                <p className="progress-title">
+                  {playersRemaining > 0
+                    ? `Faltan ${playersRemaining} jugadores`
+                    : 'Listo para generar equipos'}
+                </p>
+                <p className="progress-subtitle">
+                  {players.length} de {totalPlayersNeeded} cargados
+                </p>
+              </div>
+              <div className="progress-bar">
+                <div
+                  className="progress-fill"
+                  style={{
+                    width: `${(players.length / totalPlayersNeeded) * 100}%`
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="quick-actions">
+              <button
+                className="btn btn-ghost"
+                onClick={handleLoadSamplePlayers}
+                disabled={totalPlayersNeeded <= 0}
+              >
+                Cargar ejemplo
+              </button>
+              <button
+                className="btn btn-outline"
+                onClick={handleClearPlayers}
+                disabled={players.length === 0}
+              >
+                Limpiar lista
+              </button>
             </div>
 
             <div className="input-sections">
               <PlayerInput
                 onAddPlayer={handleAddPlayer}
-                disabled={getPlayersRemaining(numTeams, teamSize) <= 0}
+                disabled={playersRemaining <= 0}
               />
 
-              <div className="bulk-input">
-                <h3>Agregar varios jugadores</h3>
+              <div className="panel">
+                <div className="panel-header">
+                  <h3>Carga rápida</h3>
+                  <p>Pegá una lista con un jugador por línea.</p>
+                </div>
                 <textarea
                   value={bulkInput}
                   onChange={(e) => setBulkInput(e.target.value)}
-                  placeholder="Un jugador por línea, por ejemplo:&#10;Juan Pérez&#10;María García&#10;Carlos López"
-                  rows="5"
+                  placeholder="Ejemplo:\nJuan Pérez\nMaría García\nCarlos López"
+                  rows="6"
                   aria-label="Lista de jugadores"
-                  disabled={getPlayersRemaining(numTeams, teamSize) <= 0}
+                  disabled={playersRemaining <= 0}
                 />
                 <button
+                  className="btn btn-primary"
                   onClick={handleBulkInput}
-                  disabled={getPlayersRemaining(numTeams, teamSize) <= 0}
+                  disabled={playersRemaining <= 0}
                 >
-                  Agregar Jugadores
+                  Agregar lista
                 </button>
               </div>
             </div>
 
             {players.length > 0 && (
               <div className="players-list">
-                <h3>Jugadores ({players.length})</h3>
+                <div className="players-list-header">
+                  <h3>Jugadores cargados</h3>
+                  <span>{players.length}</span>
+                </div>
                 <div className="players-grid">
                   {players.map(player => (
                     <div key={player} className="player-item">
@@ -339,43 +471,44 @@ const App = () => {
             )}
 
             <div className="navigation-buttons">
-              <button onClick={() => setCurrentStep(STEPS.SETTINGS)}>
-                ← Volver
+              <button className="btn btn-ghost" onClick={() => setCurrentStep(STEPS.SETTINGS)}>
+                Volver
               </button>
               <button
+                className="btn btn-primary"
                 onClick={handleGenerateTeams}
                 disabled={playersRemaining > 0}
               >
-                Generar Equipos →
+                Generar equipos
               </button>
             </div>
-          </div>
+          </section>
         );
-      }
 
       case STEPS.RESULTS:
         return (
-          <div className="results-section">
+          <section className="results-section">
+            {renderStepHeader()}
             <TeamDisplay teams={teams} />
 
             <div className="actions">
-              <button onClick={handleShare}>
-                <FiCopy style={{ marginRight: 8, fontSize: 20 }} />
-                Copiar Equipos
+              <button className="btn btn-primary" onClick={handleShare}>
+                <FiCopy />
+                Copiar equipos
               </button>
               <button
                 onClick={handleShareWhatsApp}
-                className="whatsapp-btn"
+                className="btn btn-whatsapp"
               >
-                <FaWhatsapp style={{ marginRight: 8, fontSize: 20, color: 'white' }} />
+                <FaWhatsapp />
                 Compartir por WhatsApp
               </button>
-              <button onClick={handleReset}>
-                <FiArrowLeft style={{ marginRight: 8, fontSize: 20 }} />
-                Volver al Inicio
+              <button className="btn btn-ghost" onClick={handleReset}>
+                <FiArrowLeft />
+                Volver al inicio
               </button>
             </div>
-          </div>
+          </section>
         );
 
       default:
@@ -384,15 +517,37 @@ const App = () => {
   };
 
   return (
-    <div className="App">
-      {currentStep !== STEPS.WELCOME && (
-    <header className="header">
-      <h1 onClick={() => setCurrentStep(STEPS.WELCOME)} style={{ cursor: 'pointer' }}>Aleato</h1>
-    </header>
-  )}
-      <main>
-        {renderStep()}
-      </main>
+    <div className="app-shell">
+      <header className="topbar">
+        <div className="brand" onClick={() => setCurrentStep(STEPS.WELCOME)}>
+          <span className="brand-dot" />
+          <div>
+            <p className="brand-title">Aleato</p>
+            <p className="brand-subtitle">Generador profesional de equipos</p>
+          </div>
+        </div>
+        {currentStep !== STEPS.WELCOME && (
+          <nav className="stepper">
+            {STEP_ORDER.map((stepKey, index) => {
+              const step = STEP_META[stepKey];
+              const isActive = index === activeStepIndex;
+              const isComplete = index < activeStepIndex;
+              return (
+                <div
+                  key={stepKey}
+                  className={`stepper-item ${isActive ? 'is-active' : ''} ${isComplete ? 'is-complete' : ''}`}
+                >
+                  <span className="step-index">{index + 1}</span>
+                  <span className="step-label">{step.label}</span>
+                </div>
+              );
+            })}
+          </nav>
+        )}
+      </header>
+
+      <main className="main-content">{renderStep()}</main>
+
       <ToastContainer
         position="top-right"
         autoClose={3000}
@@ -405,6 +560,7 @@ const App = () => {
         pauseOnHover
         theme="light"
       />
+
       {isLoading && (
         <div className="loading-overlay">
           <div className="loading-container">
@@ -417,16 +573,22 @@ const App = () => {
           </div>
         </div>
       )}
+
       <footer className="footer">
         <div className="footer-content">
-          <p>© 2024 Aleato - Generador de equipos aleatorios</p>
+          <p>© 2024 Aleato. Equipos aleatorios para actividades grupales.</p>
           <div className="footer-links">
             <a href="https://github.com/nachopaezz/aleato" target="_blank" rel="noopener noreferrer">GitHub</a>
             <span className="separator">•</span>
-            <a href="#" onClick={(e) => {
-              e.preventDefault();
-              toast.info('¡Gracias por usar Aleato! 🎮');
-            }}>Acerca de Aleato</a>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                toast.info('Gracias por usar Aleato.');
+              }}
+            >
+              Acerca de Aleato
+            </a>
           </div>
         </div>
       </footer>
